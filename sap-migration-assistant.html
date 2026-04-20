@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SAP Migration Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sap-blue: #0070F2;
+    --sap-blue-dark: #0057C2;
+    --sap-blue-dim: #E8F3FF;
+    --green: #1A7F5A;
+    --green-dim: #E6F5EF;
+    --amber: #B45309;
+    --amber-dim: #FEF3C7;
+    --red: #C0392B;
+    --surface: #F7F8FA;
+    --surface-2: #EEEEF2;
+    --border: #D8DAE0;
+    --border-strong: #B0B4BF;
+    --text-1: #111318;
+    --text-2: #4A4F5E;
+    --text-3: #878EA0;
+    --white: #FFFFFF;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --font: 'IBM Plex Sans', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+    --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--surface);
+    color: var(--text-1);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Top bar ── */
+  .topbar {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-logo {
+    width: 28px; height: 28px;
+    background: var(--sap-blue);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .topbar-logo svg { width: 16px; height: 16px; }
+  .topbar-title { font-size: 15px; font-weight: 600; color: var(--text-1); letter-spacing: -0.01em; }
+  .topbar-sub { font-size: 12px; color: var(--text-3); margin-left: 2px; }
+  .topbar-spacer { flex: 1; }
+  .kb-pill {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px; color: var(--text-2);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .kb-pill:hover { background: var(--surface-2); }
+  .kb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+  .kb-dot.empty { background: var(--border-strong); }
+
+  /* ── Layout ── */
+  .app {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+    max-width: 1280px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 1.5rem;
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar { display: flex; flex-direction: column; gap: 1rem; position: sticky; top: 72px; }
+
+  .card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .card-header {
+    padding: .75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-header-title { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; }
+  .card-body { padding: 1rem; }
+
+  /* source list */
+  .src-list { display: flex; flex-direction: column; gap: 6px; }
+  .src-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 8px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+  }
+  .src-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-top: 4px; flex-shrink: 0; }
+  .src-info { flex: 1; min-width: 0; }
+  .src-name { color: var(--text-1); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .src-meta { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  .src-rm { color: var(--text-3); cursor: pointer; font-size: 16px; line-height: 1; flex-shrink: 0; padding: 0 2px; }
+  .src-rm:hover { color: var(--red); }
+  .empty-src { font-size: 13px; color: var(--text-3); text-align: center; padding: 16px 8px; }
+
+  /* add source form */
+  .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .form-group:last-child { margin-bottom: 0; }
+  label { font-size: 12px; font-weight: 500; color: var(--text-2); }
+  input[type=text], textarea {
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--white);
+    color: var(--text-1);
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+  input[type=text]:focus, textarea:focus {
+    outline: none;
+    border-color: var(--sap-blue);
+    box-shadow: 0 0 0 3px rgba(0,112,242,0.1);
+  }
+  textarea { resize: vertical; min-height: 100px; }
+  .btn {
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    border: none;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--sap-blue); color: white; }
+  .btn-primary:hover { background: var(--sap-blue-dark); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-ghost { background: var(--surface); border: 1px solid var(--border); color: var(--text-2); }
+  .btn-ghost:hover { background: var(--surface-2); }
+  .hint { font-size: 11px; color: var(--text-3); line-height: 1.5; margin-top: 6px; }
+  .hint a { color: var(--sap-blue); text-decoration: none; }
+  .hint a:hover { text-decoration: underline; }
+
+  /* ── Main chat ── */
+  .main { display: flex; flex-direction: column; gap: 1rem; }
+
+  .chat-wrap {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    min-height: 480px;
+  }
+  .chat-header {
+    padding: .75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .chat-header-title { font-size: 13px; font-weight: 500; color: var(--text-2); }
+  .chat-clear { margin-left: auto; font-size: 12px; color: var(--text-3); cursor: pointer; background: none; border: none; font-family: var(--font); }
+  .chat-clear:hover { color: var(--red); }
+
+  .chat-messages {
+    flex: 1;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    max-height: 520px;
+  }
+  .msg { display: flex; gap: 10px; align-items: flex-start; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .msg.user { flex-direction: row-reverse; }
+  .msg-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; flex-shrink: 0; margin-top: 2px;
+  }
+  .msg.assistant .msg-avatar { background: var(--sap-blue-dim); color: var(--sap-blue); }
+  .msg.user .msg-avatar { background: var(--surface-2); color: var(--text-2); }
+  .msg.thinking .msg-avatar { background: var(--surface-2); color: var(--text-3); }
+  .msg-bubble {
+    max-width: 78%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .msg.assistant .msg-bubble {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-1);
+    border-radius: 2px 12px 12px 12px;
+    white-space: pre-wrap;
+  }
+  .msg.user .msg-bubble {
+    background: var(--sap-blue);
+    color: white;
+    border-radius: 12px 2px 12px 12px;
+  }
+  .msg.thinking .msg-bubble {
+    background: var(--surface);
+    border: 1px dashed var(--border-strong);
+    color: var(--text-3);
+    font-style: italic;
+    border-radius: 2px 12px 12px 12px;
+  }
+
+  /* presets */
+  .preset-row { display: flex; flex-wrap: wrap; gap: 6px; padding: .875rem 1.25rem; border-top: 1px solid var(--border); }
+  .preset-chip {
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 5px 11px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--white);
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .preset-chip:hover { background: var(--sap-blue-dim); border-color: var(--sap-blue); color: var(--sap-blue); }
+
+  /* input bar */
+  .input-bar {
+    display: flex;
+    gap: 8px;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--border);
+    background: var(--white);
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+  .input-bar textarea {
+    flex: 1;
+    min-height: 44px;
+    max-height: 120px;
+    resize: none;
+    padding: 10px 12px;
+    font-size: 14px;
+    border-radius: 8px;
+    line-height: 1.5;
+  }
+  .btn-send {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    background: var(--sap-blue);
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  .btn-send:hover { background: var(--sap-blue-dark); }
+  .btn-send:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-send svg { width: 18px; height: 18px; fill: white; }
+
+  /* instructions card */
+  .steps { display: flex; flex-direction: column; gap: 10px; }
+  .step { display: flex; gap: 10px; align-items: flex-start; }
+  .step-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--sap-blue-dim);
+    color: var(--sap-blue);
+    font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .step-text { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+  .step-text strong { color: var(--text-1); }
+
+  /* notice banner */
+  .notice {
+    display: flex; gap: 8px; align-items: flex-start;
+    background: var(--amber-dim);
+    border: 1px solid #FDE68A;
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--amber);
+    line-height: 1.5;
+    margin-top: 8px;
+  }
+
+  /* responsive */
+  @media (max-width: 768px) {
+    .app { grid-template-columns: 1fr; padding: 1rem; }
+    .sidebar { position: static; }
+    .chat-messages { max-height: 400px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+    </svg>
+  </div>
+  <div>
+    <div class="topbar-title">SAP Migration Assistant</div>
+  </div>
+  <div class="topbar-sub">R/3 → S/4 HANA Public Cloud</div>
+  <div class="topbar-spacer"></div>
+  <div class="kb-pill" onclick="document.getElementById('src-name').focus()">
+    <span class="kb-dot empty" id="kb-dot"></span>
+    <span id="kb-pill-label">0 sources loaded</span>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+
+    <!-- How to use -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-header-title">How to use</span>
+      </div>
+      <div class="card-body">
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text">Share a <strong>SAP Learning URL</strong> with Claude in the main Claude chat</div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text">Claude <strong>fetches the content</strong> and gives you the text to copy</div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text"><strong>Paste it below</strong> with a label to add it to the knowledge base</div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-text"><strong>Ask questions</strong> — answers are grounded in your sources</div>
+          </div>
+        </div>
+        <div class="notice">
+          ⚠ SAP Learning pages block direct fetching (robots.txt). Ask Claude in chat to search and extract content for you first.
+        </div>
+      </div>
+    </div>
+
+    <!-- Knowledge base -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-header-title">Knowledge base</span>
+        <span style="font-size:12px;color:var(--text-3);" id="src-count">0 sources</span>
+      </div>
+      <div class="card-body">
+        <div class="src-list" id="src-list">
+          <div class="empty-src">No sources yet</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add source -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-header-title">Add source</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label for="src-name">Source label</label>
+          <input type="text" id="src-name" placeholder="e.g. Unit 1 – Supply Chain Planning" />
+        </div>
+        <div class="form-group">
+          <label for="src-body">Content (paste here)</label>
+          <textarea id="src-body" placeholder="Paste the text content Claude fetched from the SAP Learning page..."></textarea>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="addSource()">+ Add to knowledge base</button>
+        <p class="hint" style="margin-top:8px;">For video content, copy the transcript from the SAP Learning player and paste it here.</p>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main">
+    <div class="chat-wrap">
+      <div class="chat-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="chat-header-title">Conversation</span>
+        <button class="chat-clear" onclick="clearChat()">Clear chat</button>
+      </div>
+
+      <div class="chat-messages" id="chat-messages">
+        <div class="msg assistant">
+          <div class="msg-avatar">AI</div>
+          <div class="msg-bubble">Hello! I'm your SAP Migration Assistant, here to help your team navigate the move from R/3 to S/4 HANA Public Cloud.<br><br>I have <strong>9 knowledge sources</strong> pre-loaded from the course <em>Discovering the Basics of SAP S/4HANA Manufacturing</em> — covering supply chain planning, demand management, MRP, capacity planning, production types, and production order processing.<br><br>Ask me anything or use the quick question chips below!</div>
+        </div>
+      </div>
+
+      <div class="preset-row">
+        <button class="preset-chip" onclick="setQ('What are the key differences between SAP R/3 and S/4 HANA Public Cloud?')">Key differences</button>
+        <button class="preset-chip" onclick="setQ('Walk me through the 4 steps of supply chain planning in S/4HANA.')">Planning steps</button>
+        <button class="preset-chip" onclick="setQ('How does demand management work in S/4HANA vs R/3?')">Demand management</button>
+        <button class="preset-chip" onclick="setQ('What is SAP IBP and why does it replace older planning tools?')">SAP IBP</button>
+        <button class="preset-chip" onclick="setQ('Explain MRP types in S/4HANA and when to use each.')">MRP types</button>
+        <button class="preset-chip" onclick="setQ('What custom code considerations should we plan for?')">Custom code</button>
+        <button class="preset-chip" onclick="setQ('What are the most common migration pitfalls to avoid?')">Common pitfalls</button>
+        <button class="preset-chip" onclick="setQ('What integrations typically need reconfiguring?')">Integrations</button>
+      </div>
+
+      <div class="input-bar">
+        <textarea id="q-input" placeholder="Ask about your SAP migration... (Enter to send, Shift+Enter for new line)" rows="1"></textarea>
+        <button class="btn-send" id="ask-btn" onclick="ask()">
+          <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+        </button>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<script>
+  let chatHistory = [];
+  let sources = [
+    {
+      name: "Discovering the Basics of SAP S/4HANA Manufacturing > Unit 1 > Lesson 1 – Outlining Supply Chain Planning at a Glance",
+      words: 320,
+      content: `COURSE: Discovering the Basics of SAP S/4HANA Manufacturing
+UNIT 1: Introducing Supply Chain Planning
+LESSON 1: Outlining Supply Chain Planning at a Glance
+URL: https://learning.sap.com/courses/discovering-the-basics-of-s-4hana-manufacturing/outlining-supply-chain-planning-at-a-glance_c83a89ef-ab87-49e4-9bb6-fab802e443f9
+
+--- OBJECTIVE ---
+After completing this lesson, you will be able to outline the basics of supply chain planning.
+
+--- PAGE TEXT ---
+To illustrate the production processes in a company, we use the example of the Bike Company. The company produces its own bicycles and maps the production processes in SAP S/4HANA.
+The Learning Journey is divided into two parts. The first part is about production planning and the second part is about production execution.
+You may be wondering why production planning is necessary. Consider a scenario where the Bike Company simply manufactures bicycles based on incoming orders. However, customers generally prefer to receive their bikes promptly, rather than waiting for weeks. This is where production planning becomes crucial.
+
+--- VIDEO TRANSCRIPT ---
+Let's explore how companies balance efficiency and customer satisfaction through the strategic use of push and pull methodologies. Let's begin by defining two critical concepts in supply chain management, lead time and delivery time. Lead time refers to the entire process from procurement of raw materials to the arrival of finished products at distribution centres. This includes sourcing, production, and internal logistics. The delivery time is typically defined by the customer's requested delivery date. However, this often creates a challenge in supply chain management as the lead time is frequently longer than the delivery time requested by the customer. Consequently, we often face situations where customers require products that are not immediately available. To address this challenge, it's crucial to understand two primary strategies in supply chain management: push and pull. The push strategy, or make to stock, involves production based on long-term forecasts. In this model, products are manufactured in anticipation of demand and pushed into the market. Key characteristics of the push strategy include longer lead times due to complex production processes, potentially short delivery times as products are meant to cover short term requirements, economies of scale in production, and suitability for products with stable, predictable demand. However, the push strategy also contains challenges. Changes, risk of overproduction and obsolete inventory, and higher inventory carrying costs. In contrast, the pull strategy or make to order initiates production only when a customer order is received. The pull strategy is characterised by potentially longer overall lead times. Process will be triggered by concrete sales demand, generally longer delivery times as production starts after order placement only, reduced inventory costs, lower risk of obsolete stock, and the possibility for customer configurations. Challenges of the pull strategy include potentially longer delivery times for customers and the need for highly flexible production systems. In practise, many successful companies employ a hybrid approach, combining elements of both push and pull strategies to optimise their supply chain. This hybrid approach often involves using the push strategy for common components or partially finished goods, and using the pull strategy for final assembly or customization. The benefits of this hybrid model include: reduced overall lead time, shorter delivery time, balanced inventory levels, and improved responsiveness to customer demands. In conclusion, by strategically combining push and pull strategies, companies can significantly reduce both lead times and delivery times while maintaining optimal inventory levels.
+
+--- LESSON SUMMARY ---
+In this lesson, you:
+- Got an idea of a typical supply chain
+- Learned major differences between pull and push production
+- Got introduced to a hybrid approach and its characteristics`
+    },
+    {
+      name: "Discovering the Basics of SAP S/4HANA Manufacturing > Unit 1 > Lesson 2 – Exploring the Steps of Supply Chain Planning",
+      words: 380,
+      content: `COURSE: Discovering the Basics of SAP S/4HANA Manufacturing
+UNIT 1: Introducing Supply Chain Planning
+LESSON 2: Exploring the Steps of Supply Chain Planning
+
+--- OBJECTIVE ---
+After completing this lesson, you will be able to describe the steps of supply chain planning.
+
+--- PAGE TEXT ---
+Supply Chain Planning is divided into three major steps from a global point of view:
+1. Forecasting
+2. Demand Management
+3. Material Requirements Planning
+
+FORECASTING OVERVIEW
+In the Bike Company example, past sales order quantities are used to predict the future demand of 200 bikes. Market intelligence and events like trade fairs also contribute to the forecast. The demand plan is then derived into planned independent requirements, which guide procurement and production planning.
+
+DEMAND MANAGEMENT OVERVIEW
+Demand Management is the management of planned independent requirements and their interaction with real customer requirements. The demand program serves as input for material requirements planning.
+The following main methods are available for including customer requirements into planning:
+- Make-to-Order Production: Each sales order item is planned separately.
+- Make-to-Stock Production: Production can be triggered without specific sales demand.
+
+MATERIAL REQUIREMENTS PLANNING (MRP) OVERVIEW
+Material Requirements Planning (MRP) is the first step of production planning within a short-term horizon. It usually follows demand management during a (nightly) background job in case of a shortage.
+During MRP execution, the system creates a coverage element (planned orders or purchase requisitions). A hard-coded planning algorithm is used. In addition to the conventional MRP planning procedure, there is a further solution approach in SAP S/4HANA called MRP Live.
+
+CAPACITY REQUIREMENTS PLANNING (CRP) OVERVIEW
+Capacity requirements planning (CRP) involves evaluating the available capacity of work centers or resources and matching it with the production requirements.
+
+--- VIDEO TRANSCRIPT 1 – Demand Planning Cycle ---
+The demand planning cycle is key to supply chain management. It begins with past sales order quantities, which help predict future demands. We enhance this prediction by including market intelligence and special events like trade fairs. From this, we create and release a demand plan known as planned independent requirements. These requirements are essential, guiding both procurement and production planning. As new sales orders arrive, they may consume from the planned independent requirements. The cycle ensures we're prepared for future customer needs while remaining flexible to current demands.
+
+--- VIDEO TRANSCRIPT 2 – MRP Procedure ---
+Using the Material Requirements Planning procedure, we start with production planning based on the material availability date calculated from the requested delivery date from the sales order. The material availability date defines the date when the finished product needs to be ready for starting the delivery process. Calculating backwards from this date, the system determines when the first operation in the production process has to be started. In order to start the production of the finished product, all required assemblies and materials over the complete BOM should be available.
+
+--- VIDEO TRANSCRIPT 3 – Capacity Planning ---
+In Material Requirements Planning, the system determines the capacity requirements based on the routing of a finished material. The system calculates with infinite capacities. This means that MRP only creates capacity requirements without verifying whether the work centre is available on the relevant dates. The next optional step is Capacity Planning. In this step, an additional check needs to be performed to determine whether the plan is feasible. This includes checking if bottleneck work centres are available on the requested dates and if operations can be rescheduled if necessary. Note: Material requirements planning is specific to materials. Capacity planning is specific to work centres.
+
+--- LESSON SUMMARY ---
+In this lesson, you:
+- Got an idea of forecasting
+- Learned basics about demand management
+- Got an impression of material requirements planning
+- Got introduced to capacity requirements planning`
+    },
+    {
+      name: "Discovering the Basics of SAP S/4HANA Manufacturing > Unit 2 > Lesson 1 – Outlining Planning Strategies in SAP S/4HANA",
+      words: 340,
+      content: `COURSE: Discovering the Basics of SAP S/4HANA Manufacturing
+UNIT 2: Introducing Demand Management in SAP S/4HANA
+LESSON 1: Outlining Planning Strategies in SAP S/4HANA
+
+--- OBJECTIVE ---
+After completing this lesson, you will be able to explain the basics of demand management.
+
+--- PAGE TEXT ---
+INTRODUCTION
+Demand management is used to handle planned independent requirements and their interaction with real customer requirements. The demand program is the starting point of the production planning and serves as input for material requirements planning.
+
+BASIC TYPES OF REQUIREMENTS
+- Planned Independent Requirements (PIRs): Stock requirements that might initiate procurement or production without waiting for sales orders.
+- Sales Orders: Customer requirements entered by the sales department for a delivery plant.
+- Stock Transfer Requirements: Requirements from other locations in your own network (e.g. from distribution centers).
+
+PLANNING STRATEGIES
+The main task of planning strategies is defining the relationship between planned independent requirements and customer orders:
+- Make-to-Stock Production Strategies: The system takes into account both kinds of demands — PIRs as well as existing sales orders.
+- Subassembly Planning Strategies: Make-to-stock production executed on assembly level. Required assemblies are procured rather than finished products being produced to stock. A sales order triggers the final assembly.
+- Make-to-Order Production Strategies: Production/procurement is only initiated when an actual sales order is received.
+Specific planning strategies always have their own advantages and restrictions. The choice of strategy mainly depends on the nature of the product.
+
+DIAGRAM: Production Strategy Types
+1. Make-to-Stock Production: Planning at finished product level or for assemblies. Consumption with sales orders or dependent requirements (for assemblies) possible.
+2. Final Assembly Based on Sales Orders: Planning at finished product level leads to procurement of assemblies for the finished product. Final assembly only after a sales order is received.
+3. Make-to-Order Production: No planning at finished product level. Planning possible for assemblies.
+
+--- VIDEO TRANSCRIPT ---
+Demand management concerns the management of stock requirements, customer requirements, and stock transfer requirements to obtain a demand programme. During material requirements planning, these requirements are covered by in-house production or external procurement.
+
+--- LESSON SUMMARY ---
+In this lesson, you:
+- Learned what a demand program is
+- Got introduced to planning strategies
+- Got an overview of different types of planning strategies for different business cases`
+    },
+    {
+      name: "Discovering the Basics of SAP S/4HANA Manufacturing > Unit 3 > Lesson 1 – Outlining MRP in SAP S/4HANA",
+      words: 580,
+      content: `COURSE: Discovering the Basics of SAP S/4HANA Manufacturing
+UNIT 3: Introducing Material Requirements Planning and Capacity Planning in SAP S/4HANA
+LESSON 1: Outlining MRP in SAP S/4HANA
+
+--- OBJECTIVE ---
+After completing this lesson, you will be able to outline the basic concepts of material requirements planning (MRP).
+
+--- PAGE TEXT ---
+INTRODUCTION
+During the MRP process, the Bike Company ensures that they have the necessary materials available at the right time and in the right quantity.
+
+MATERIAL REQUIREMENTS PLANNING TYPES
+There are two main MRP types:
+
+1. CONSUMPTION-BASED PLANNING
+Provides a simpler and more automated approach to materials planning by relying on historical consumption data and triggering replenishment based on predefined thresholds. Focuses on managing less critical low-value parts (e.g. screws and nuts).
+
+Reorder Point Planning: A predefined reorder point is established for each material. When stock falls below the reorder point (e.g. screws fall below 500 pieces), a replenishment order is triggered. Key concepts: Safety Stock (minimum buffer), Reorder Point (triggers new order), Replenishment Lead Time (time between order and delivery), Lot Size (quantity received on delivery).
+
+2. DETERMINISTIC PLANNING
+Usually relies on demand forecasts or sales orders to calculate material requirements. MRP is executed for a product including its components and sub-assemblies (multilevel). Focuses on high-value parts (e.g. high-end bikes).
+
+A finished product often consists of many assemblies and sub-assemblies down to raw materials. All elements are defined in a Bill of Material (BOM). This BOM structure is exploded for each demand over all levels. The process considers: procurement lead times, production lead times, transit times, and other factors impacting material availability dates.
+
+In the case of a net requirement (shortage), the system calculates the quantity of the necessary receipt element. After lot sizing determines the replenishment quantity, the system determines whether the material will be produced in-house or procured externally. Finally, the system calculates the start date for in-house production.
+
+DIAGRAM: Planned Order Scheduling
+A Planned Order spans from Order Start Date to Order Finish Date:
+- Buffer before Production → Production Start Date → Operations (Op.10, Op.20, Op.30 from Routing) → Production Finish Date → Buffer after Production
+- Operations are scheduled backwards (backward scheduling)
+
+DIAGRAM: BOM Explosion and Backward Scheduling
+MRP answers three key questions working backwards from the demand date:
+1. When will the final production take place? → Planned Order Finished Product (Op.10, Op.20, Op.30)
+2. When are the components required? → Dependent Requirement for Assembly 1 (with its own operations)
+3. When does procurement need to begin? → Order for Raw Material A placed earliest
+BOM Explosion: finished product broken down into assemblies and further into raw materials. MRP explodes level by level, scheduling each backward from the demand date.
+
+--- LESSON SUMMARY ---
+In this lesson, you:
+- Got an overview of reorder point planning
+- Got an overview of deterministic planning
+- Were introduced to the basics of scheduling`
+    },
+    {
+      name: "Discovering the Basics of SAP S/4HANA Manufacturing > Unit 3 > Lesson 2 – Getting Introduced to Capacity Requirements Planning",
+      words: 180,
+      content: `COURSE: Discovering the Basics of SAP S/4HANA Manufacturing
+UNIT 3: Introducing Material Requirements Planning and Capacity Planning in SAP S/4HANA
+LESSON 2: Getting Introduced to Capacity Requirements Planning
+
+--- OBJECTIVE ---
+After completing this lesson, you will be able to know the basics of capacity requirements planning.
+
+--- PAGE TEXT ---
+CAPACITY REQUIREMENTS PLANNING
+The Bike Company has finished the MRP process for their bikes. This ensures that the planning dates and quantities for all required components are calculated. However, during MRP, no capacities from work centers or workers are considered — the system executes planning based on unlimited capacities.
+Therefore, an additional step can be necessary: Capacity Evaluation, which indicates whether production is feasible as planned.
+
+--- VIDEO TRANSCRIPT ---
+In Material Requirements Planning, the system determines the capacity requirements based on the routing of a finished material. The system calculates with infinite capacities. This means that MRP only creates capacity requirements without verifying whether the work centre is available on the relevant dates.
+The next optional step is Capacity Planning. In this step, an additional check needs to be performed to determine whether the plan is feasible. This includes:
+- Checking if bottleneck work centres are available on the requested dates
+- Checking if operations can be rescheduled if necessary
+Note: Material requirements planning is specific to materials. Capacity planning is specific to work centres.
+
+--- LESSON SUMMARY ---
+In this lesson, you:
+- Got introduced to capacity requirements planning
+- Learned about the interface to material requirements planning
+- Got an overview of dependencies between capacity requirements planning and material requirements planning`
+    },
+    {
+      name: "Discovering the Basics of SAP S/4HANA Manufacturing > Unit 4 > Lesson 1 – Outlining Production Types",
+      words: 620,
+      content: `COURSE: Discovering the Basics of SAP S/4HANA Manufacturing
+UNIT 4: Getting an Overview of Production Execution
+LESSON 1: Outlining Production Types
+
+--- OBJECTIVE ---
+After completing this lesson, you will be able to describe the production types supported with S/4HANA.
+
+--- PAGE TEXT ---
+INTRODUCTION
+Production orders are a central part of a complex process chain, starting with a requirement (PIR or sales order) and ending with the goods receipt of the finished product. SAP S/4HANA supports the following different production order types:
+
+1. PRODUCTION ORDERS FOR DISCRETE INDUSTRIES
+Used in: engineering, automotive, plant engineering, consumer goods, construction, woodworking, electronics, aerospace and defense. Each order is tracked and analyzed individually (status, costs).
+
+2. PROCESS ORDERS FOR PROCESS INDUSTRIES
+Used in: chemical, pharmaceutical, food and beverage, batch-oriented electronics. Each order is tracked and analyzed individually (status, costs).
+
+3. REPETITIVE MANUFACTURING
+Used for make-to-stock or make-to-order processes (e.g. automotive). Focus is on manufacturing certain product quantities on a period basis — individual order details are not tracked.
+
+General distinction: Order-related production (discrete + process industries) vs. Repetitive manufacturing (mainly discrete industries).
+
+PRODUCTION ORDERS IN DISCRETE INDUSTRIES
+Final assembly of a bike is a typical discrete production process. A production lot is pushed through production — processed completely on one work center before moving to the next.
+Process flow: production order created for 100 bikes → operations modeled in routing (Pre-Assembly, Assembly, Quality Inspection, Packaging) → components in BOM → each operation executed at a work center → operator submits data to SAP S/4HANA (yield, scrap, rework, time) → goods receipt posted after last operation.
+
+PROCESS ORDERS IN PROCESS INDUSTRIES
+Example: producing 1500 liters of red paint for the bikes. A process order is created. Steps modeled as operations in a recipe. Components in BOM. Each reaction vessel modeled as a resource.
+Video transcript — paint production: Process begins by blending solvents in a reaction vessel. Due to chemical constraints, two separate reaction vessels are used. Solvents transferred to mixing vessels — upper solvent mix mixed with red pigment, lower with emulsifier. All components combined in a single vessel to produce red paint.
+
+REPETITIVE MANUFACTURING
+Used for tires (needed regularly in large quantities). Key characteristics:
+- Period- and quantity-oriented production of highly standardized products
+- Usually highly automated (e.g. automated production line)
+- Production line = one work center in master data
+- Routing contains one single manufacturing operation (e.g. 'assembly')
+- Components modeled in BOM
+- Focus on quantity manufactured per time period, not individual orders
+- SAP S/4HANA uses planned orders to execute and monitor repetitive manufacturing
+
+DIAGRAM: Discrete Manufacturing – Production Lot Flow
+Lot → Pre-Assembly → Lot → Assembly (complete bike) → Lot → Quality Inspection → Lot → Packaging. Each stage receives the complete lot before passing it to the next (push-through concept).
+
+DIAGRAM: Repetitive Manufacturing – Production Line
+Period- and Quantity-Oriented Production arrow pointing right. A conveyor belt (Production Line) moves multiple identical items at regular intervals — illustrating continuous, high-volume standardized production focused on throughput quantity per period.
+
+--- LESSON SUMMARY ---
+In this lesson, you:
+- Got introduced to the different production types
+- Learned about major properties of discrete manufacturing
+- Learned about major properties of process manufacturing
+- Learned about major properties of lean/repetitive manufacturing`
+    },
+    {
+      name: "Discovering the Basics of SAP S/4HANA Manufacturing > Unit 5 > Lesson 1 – Describing the Transition from Planning to Order Execution",
+      words: 740,
+      content: `COURSE: Discovering the Basics of SAP S/4HANA Manufacturing
+UNIT 5: Introducing Production with Production Orders
+LESSON 1: Describing the Transition from Planning to Order Execution
+
+--- OBJECTIVE ---
+After completing this lesson, you will be able to describe the integration of production orders.
+
+--- PAGE TEXT ---
+CHARACTERISTICS OF PRODUCTION ORDERS
+A production order defines: which material is to be produced, in which quantity, at which time, and in which way.
+In the Bike Company, production orders define: which types of bicycles are to be produced, quantities, when they will be produced, which material components are required, and which operations at which work centers.
+
+HANDOVER FROM PLANNING TO EXECUTION
+The demand program originates from concrete sales orders or forecasts. After maintaining the demand program as PIRs, they are processed by the MRP run to generate planned orders.
+
+MONITOR MATERIAL COVERAGE
+The system compares requirements and stock evaluation over time:
+- Requirements covered → MRP does not create new planned orders
+- Requirements NOT covered → MRP generates planned orders that can be converted to production orders
+
+Process: 1) Analyze material coverage before MRP run. 2) Execute MRP run. 3) Analyze material coverage after MRP run.
+
+CONVERT PLANNED ORDER TO PRODUCTION ORDER
+Planned orders are future goods receipts created by MRP to fulfill uncovered demand. They cannot be used for manufacturing directly.
+- Discrete industry → planned orders converted to production orders
+- Process industry → planned orders converted to process orders
+In the Bike Company: production orders for final bike assembly; process orders for bike paint.
+
+--- VIDEO TRANSCRIPT 1 – Overview ---
+Two basic planning strategies: Make-to-Stock (PIRs created from forecasts) and Make-to-Order (sales orders created in sales). Bike Company uses both: constant-volume bikes → make-to-stock; special expensive bikes → make-to-order. MRP run carried out once a day. Close to production time, planned orders converted to production orders. Planned orders = planned receipts dynamically adjusted by MRP. Production orders = detailed manufacturing instructions, cannot be automatically changed by MRP. Order execution includes: staging required components, confirming operations, posting goods receipts.
+
+--- VIDEO TRANSCRIPT 2 – Maintaining PIRs ---
+Use the "Maintain PIRs" app. Search materials → select items → choose Create. System displays planned quantities per week starting from current week. Enter planned quantities for each week. Activate and save so they are considered in the next MRP run.
+
+--- VIDEO TRANSCRIPT 3 – Monitor Material Coverage ---
+Using Monitor Material Coverage app. Before MRP: red boxes indicate shortage ~2 weeks from today; component level all green (MRP not yet run). Detailed view: no stock available; each line = one independent requirement of 30 pieces; accumulated quantity shown in red (shortage). After MRP run: for each independent requirement, system created one planned order of 30 pieces (based on lot size setting). Available quantity increased by 30 pieces per planned order, immediately consumed by independent requirement. Component level: MRP created dependent requirements — all met by available stock which decreases over time.
+
+--- VIDEO TRANSCRIPT 4 – Converting Planned Order to Production Order ---
+Using Monitor Material Coverage app → Manage Materials. For each independent requirement, MRP created a planned order. BOM level shows dependent requirements per planned order. To convert: select planned order line → choose Convert → confirm OK. Result: planned order converted to production order. BOM item level: dependent requirement removed and replaced by order reservation.
+
+--- LESSON SUMMARY ---
+In this lesson, you:
+- Got introduced to the transition from planning to order execution
+- Learned how to maintain planned independent requirements
+- Learned how to review material coverage and start the MRP run
+- Learned how to manually convert a planned order into a production order`
+    },
+    {
+      name: "Discovering the Basics of SAP S/4HANA Manufacturing > Unit 5 > Lesson 2 – Describing the Structure and Elements of a Production Order",
+      words: 480,
+      content: `COURSE: Discovering the Basics of SAP S/4HANA Manufacturing
+UNIT 5: Introducing Production with Production Orders
+LESSON 2: Describing the Structure and Elements of a Production Order
+
+--- OBJECTIVE ---
+After completing this lesson, you will be able to describe the structure and elements of a production order.
+
+--- PAGE TEXT ---
+ELEMENTS OF A PRODUCTION ORDER
+- Order header: most important information — production dates, quantities, manufactured product
+- Sequence of operations: models the manufacturing process — order must be respected
+- Bill of material: components assembled in each operation
+- Additional supporting information as required
+
+STRUCTURE – BIKE COMPANY EXAMPLE
+Order Header: material number of bike + order quantity.
+List of Operations: Pre-Assembly → Assembly → Quality Inspection → Packaging (sequential).
+List of Components: two wheels, one frame, one chain, one shipping box, etc. Components and operations are connected.
+Example flow: Pre-Assembly (frame consumed) → Assembly (wheels and chain attached) → Quality Inspection → Packaging.
+
+DIAGRAM: Production Order Structure
+Header (Bicycle product) → List of Components (Frame, Wheel, Chain) → List of Operations (Pre-Assembly → Assembly → Quality Inspection → Packaging). Each component feeds into the relevant operation.
+
+--- VIDEO TRANSCRIPT – Elements of a Production Order ---
+ORDER HEADER: order number, plant, production scheduler, linked documents, planned and actual costs.
+
+LIST OF OPERATIONS — each operation includes:
+- Work Center: essential for capacity planning, scheduling, cost calculation
+- Control Key: defines business treatment (relevant to costing, scheduling, confirmation)
+- Standard Values: used with order quantity to calculate operation duration and capacity requirements
+- Quantity and Date Information: used for scheduling and capacity planning; used at confirmation to determine if operation is completed
+
+LIST OF COMPONENTS — each component always assigned to an operation:
+- Material number
+- Item category: defines business treatment (stock vs. non-stock component — non-stock purchased individually for the order)
+- Quantity and requirement date: how many components needed and when
+
+PRODUCTION RESOURCES AND TOOLS (PRT): assigned to operations based on routing. Details: PRT number, PRT type, quantity and date information.
+
+TRIGGER POINTS: automate order processing steps. Example: automatically create a rework order from confirmation of a rework quantity.
+
+ORDER CONFIRMATIONS: operations confirmed during processing to document progress and record actual values (quantity, activity, time information).
+
+--- LESSON SUMMARY ---
+In this lesson, you:
+- Got an overview of the structure of a production order
+- Learned to distinguish order header, list of operations, and list of components
+- Got an impression of how these elements characterize a production order`
+    },
+    {
+      name: "Discovering the Basics of SAP S/4HANA Manufacturing > Unit 5 > Lesson 3 – Describing the Various Steps of Production Order Processing",
+      words: 680,
+      content: `COURSE: Discovering the Basics of SAP S/4HANA Manufacturing
+UNIT 5: Introducing Production with Production Orders
+LESSON 3: Describing the Various Steps of Production Order Processing
+
+--- OBJECTIVE ---
+After completing this lesson, you will be able to describe the various steps of production order processing.
+
+--- PAGE TEXT ---
+PRODUCTION ORDER PROCESSING
+A production order has a lifecycle partially predefined but adaptable. Various roles (production supervisor, production operator, warehouse clerk) execute various steps.
+
+RELEASE A PRODUCTION ORDER
+Order release is essential. Without release, subsequent functions cannot execute (goods issues, goods receipts, confirmations). The production supervisor releases the order before the operator can begin assembly.
+
+PICK COMPONENTS AND POST GOODS ISSUE
+After release, warehouse clerks stage required components (wheels, chain, frame, etc.) to production before the operator can begin assembly.
+
+CONFIRM OPERATIONS
+Operators execute operations (Pre-Assembly, Assembly, Quality Inspection, Packaging) and confirm them in the system.
+Confirmation information:
+- Yield quantity: correctly manufactured, transferred to next work center
+- Scrap quantity: posted when manufacturing failed and partially assembled product was destroyed
+- Rework quantity: stays at work center until repaired
+- Operation time: e.g. 45 minutes for pre-assembly of 10 bikes — costs attributed to order; comparing scheduled vs. actual times allows planning fine-tuning
+
+POST GOODS RECEIPT
+After all operations executed, inventory records updated by posting goods receipt of manufactured product.
+
+--- VIDEO TRANSCRIPT 1 – Production Order Lifecycle ---
+Main steps: Order Creation → Order Release → Goods Issues → Confirmations → Goods Receipts.
+Status CREATED: goods movements and confirmations cannot be posted.
+Status RELEASED: goods issues, confirmations, goods receipts can be posted.
+Goods Issues: records material consumption, decreases stock quantities and values.
+Goods Receipts: documents production quantities, increases stock quantities and values of finished products.
+Supporting functions: availability checks, capacity evaluation and leveling, order printing (goods issue slips, confirmation slips, PRT lists), download/upload to/from process control systems (MES), material staging from central storage to production storage location.
+
+--- VIDEO TRANSCRIPT 2 – Releasing a Production Order ---
+Using Manage Production Orders app. Before release: 3 components (Chain, Frame, Wheel) shown with red bar (not confirmed); 3 operations (Pre-Assembly, Assembly, Quality Check) in status Created. Release: choose Release button (upper right). After release: component quantities confirmed (green bar); all operations status changes to Released. Note: releasing order automatically releases all operations; individual release also possible. Mass release available from order list.
+
+--- VIDEO TRANSCRIPT 3 – Picking Components and Posting Goods Issue ---
+Using Pick Components for Production Orders app. Enter search criteria → execute search → system shows components per order with withdrawal quantities. Select components → choose Picking → accept or modify quantities and storage locations → choose Post. System creates material document. After withdrawal: open quantity = zero; gray status bar per component. Component reservations no longer shown in Monitor Material Coverage (completely consumed).
+
+--- VIDEO TRANSCRIPT 4 – Confirming Operations ---
+Using Manage Production Operations app: shows all operations and their status (initially Released). Using Time Ticket Confirmation app: enter Order number and Operation ID → system proposes quantity and times → accept or change → confirm. After confirmation: Operation Progress increases (e.g. 30 of 30 pieces); status changes to Confirmed. Once all operations confirmed → order header status changes to Confirmed.
+
+--- VIDEO TRANSCRIPT 5 – Posting Goods Receipt ---
+Before goods receipt: Stock Single Material app shows zero pieces in plant 1010, storage location 101A. Using Post Goods Movement app: select Goods Receipt for Order → enter Order ID → system proposes 30 pieces → choose Post → material document created. After goods receipt: stock increases to 30 pieces in plant 1010, storage location 101A. Order status in Manage Production Orders: Delivered, open quantity zero, all 3 operations 30 of 30 confirmed.
+
+--- LESSON SUMMARY ---
+In this lesson, you:
+- Got an overview of production order processing
+- Learned how to release a production order
+- Learned how to pick components and post goods issue
+- Learned how to confirm operations
+- Learned how to manually post goods receipt for an order`
+    }
+  ];
+
+  function addSource() {
+    const name = document.getElementById('src-name').value.trim();
+    const body = document.getElementById('src-body').value.trim();
+    if (!name) { alert('Please enter a source label.'); return; }
+    if (!body) { alert('Please paste some content.'); return; }
+    sources.push({ name, content: body.slice(0, 12000), words: body.split(/\s+/).length });
+    document.getElementById('src-name').value = '';
+    document.getElementById('src-body').value = '';
+    renderSources();
+  }
+
+  function removeSource(i) {
+    sources.splice(i, 1);
+    renderSources();
+  }
+
+  function renderSources() {
+    const list = document.getElementById('src-list');
+    const count = document.getElementById('src-count');
+    const dot = document.getElementById('kb-dot');
+    const pill = document.getElementById('kb-pill-label');
+    count.textContent = sources.length + (sources.length === 1 ? ' source' : ' sources');
+    pill.textContent = sources.length + (sources.length === 1 ? ' source loaded' : ' sources loaded');
+    dot.className = 'kb-dot' + (sources.length === 0 ? ' empty' : '');
+    if (sources.length === 0) {
+      list.innerHTML = '<div class="empty-src">No sources yet</div>';
+      return;
+    }
+    list.innerHTML = sources.map((s, i) => `
+      <div class="src-item">
+        <span class="src-dot"></span>
+        <div class="src-info">
+          <div class="src-name" title="${s.name}">${s.name}</div>
+          <div class="src-meta">~${s.words.toLocaleString()} words</div>
+        </div>
+        <span class="src-rm" onclick="removeSource(${i})" title="Remove">×</span>
+      </div>
+    `).join('');
+  }
+
+  function setQ(text) {
+    const inp = document.getElementById('q-input');
+    inp.value = text;
+    inp.focus();
+    autoResize(inp);
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  renderSources();
+
+  document.getElementById('q-input').addEventListener('input', function() { autoResize(this); });
+  document.getElementById('q-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); }
+  });
+
+  function appendMsg(role, text) {
+    const container = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = 'msg ' + role;
+    const avatarText = role === 'user' ? 'You' : role === 'thinking' ? '···' : 'AI';
+    div.innerHTML = `<div class="msg-avatar">${avatarText}</div><div class="msg-bubble">${escapeHtml(text)}</div>`;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return div;
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function clearChat() {
+    chatHistory = [];
+    const container = document.getElementById('chat-messages');
+    container.innerHTML = `
+      <div class="msg assistant">
+        <div class="msg-avatar">AI</div>
+        <div class="msg-bubble">Chat cleared. How can I help with your SAP migration?</div>
+      </div>`;
+  }
+
+  async function ask() {
+    const inp = document.getElementById('q-input');
+    const btn = document.getElementById('ask-btn');
+    const question = inp.value.trim();
+    if (!question) return;
+
+    appendMsg('user', question);
+    chatHistory.push({ role: 'user', content: question });
+    inp.value = '';
+    inp.style.height = 'auto';
+    btn.disabled = true;
+
+    const readySources = sources.filter(s => s.content);
+    const sourceBlock = readySources.length > 0
+      ? readySources.map((s, i) => `--- SOURCE ${i+1}: ${s.name} ---\n${s.content}`).join('\n\n')
+      : '';
+
+    const systemPrompt = `You are an expert SAP migration consultant helping a team migrate from SAP R/3 to S/4 HANA Public Cloud.
+${sourceBlock
+  ? `\nThe following knowledge sources have been provided by the user. Use them as your PRIMARY reference when answering. Cite the source name when you draw from it. If the sources don't cover the question, draw on your general SAP expertise and say so.\n\n${sourceBlock}`
+  : '\nNo knowledge sources are loaded yet. Answer from your general SAP migration expertise.'}
+
+Guidelines:
+- Be practical and specific to real migration scenarios
+- Explicitly highlight differences between R/3 and S/4 HANA Public Cloud when relevant
+- Structure longer answers clearly with numbered points or sections
+- Be concise but complete — this team is in an active migration`;
+
+    const thinkingMsg = appendMsg('thinking', 'Thinking…');
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: systemPrompt,
+          messages: chatHistory.slice(-12)
+        })
+      });
+      const data = await res.json();
+      const answer = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n') || 'Sorry, I could not generate a response.';
+      thinkingMsg.remove();
+      appendMsg('assistant', answer);
+      chatHistory.push({ role: 'assistant', content: answer });
+    } catch(e) {
+      thinkingMsg.remove();
+      appendMsg('assistant', 'Connection error — please check your internet and try again.');
+    }
+    btn.disabled = false;
+  }
+</script>
+</body>
+</html>
